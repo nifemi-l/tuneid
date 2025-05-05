@@ -650,7 +650,6 @@ a:hover {
   color: var(--primary);
   font-size: 1.5rem;
   margin-right: var(--spacing-sm);
-  animation: gradientShift 3s infinite;
 }
 
 .tune-id-logo {
@@ -869,7 +868,6 @@ body::after {
   color: var(--primary);
   font-size: 1.5rem;
   margin-right: var(--spacing-sm);
-  animation: pulse-glow 3s infinite ease-in-out;
 }
 
 /* Header with glassmorphism */
