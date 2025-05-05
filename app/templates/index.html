@@ -145,7 +145,7 @@
   </aside>
 
   <script>
-  ;(() => {
+;(() => {
     const form = document.getElementById('recognize-form');
     const urlInput = document.getElementById('url-input');
     const overlay = document.getElementById('overlay');
@@ -193,6 +193,46 @@
     function closeResult() {
       resultModal.classList.add('hidden');
       closeOverlay();
+    }
+
+    // Create ripple element and add to modal
+    function createRippleEffect() {
+      // Create a container for the ripples
+      const rippleContainer = document.createElement('div');
+      rippleContainer.className = 'ripple-container';
+      
+      // Create three ripple elements
+      for (let i = 0; i < 3; i++) {
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple';
+        rippleContainer.appendChild(ripple);
+      }
+      
+      // Add ripple container to the result modal
+      resultModal.appendChild(rippleContainer);
+      
+      return rippleContainer;
+    }
+
+    // Function to start ripple effect
+    function startRippleEffect() {
+      // Make sure ripple container exists
+      let rippleContainer = resultModal.querySelector('.ripple-container');
+      if (!rippleContainer) {
+        rippleContainer = createRippleEffect();
+      }
+      
+      // Start the animation by adding the active class
+      rippleContainer.classList.add('active');
+      
+      // Add beating animation to modal
+      resultModal.classList.add('beating');
+      
+      // Set timeout to stop the effect after some time
+      setTimeout(() => {
+        rippleContainer.classList.remove('active');
+        resultModal.classList.remove('beating');
+      }, 3000); // Stop after 3 seconds
     }
 
     function updateStep(n, status) {
@@ -349,7 +389,7 @@
           openResult(`
             <div class="modal-header">
               <h3>Song Found!</h3>
-              <button class="close-btn" onclick="closeResult()"><i class="fas fa-times"></i></button>
+              <button class="close-btn" onclick="window.closeResult()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-content result">
               <img src="${data.images.cover_art_hq}" class="cover" alt="Cover Art"/>
@@ -371,6 +411,11 @@
               </div>
             </div>
           `);
+
+          // Start the ripple effect for song found
+          setTimeout(() => {
+            startRippleEffect();
+          }, 300);      
         }, 600);
         
       } catch(err) {
@@ -383,7 +428,7 @@
           openResult(`
             <div class="modal-header">
               <h3>Song Not Found</h3>
-              <button class="close-btn" onclick="closeResult()"><i class="fas fa-times"></i></button>
+              <button class="close-btn" onclick="window.closeResult()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-content error-content">
               <div class="error-icon">
@@ -396,7 +441,7 @@
                 <li>The URL is valid and accessible</li>
                 <li>There's clear audio with minimal background noise</li>
               </ul>
-              <button class="btn try-again-btn" onclick="closeResult()">Try Again</button>
+              <button class="btn try-again-btn" onclick="window.closeResult()">Try Again</button>
             </div>
           `);
         }, 800);
@@ -406,8 +451,9 @@
     // Expose functions to be used by onclick
     window.closeProgress = closeProgress;
     window.closeResult = closeResult;
+    window.startRippleEffect = startRippleEffect; // Also expose startRippleEffect if needed
   })();
-
+  
 //   // Attempt to make cool background
 //   function createMusicNotes() {
 //   const notesContainer = document.createElement('div');
