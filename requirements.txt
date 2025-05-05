@@ -1,9 +1,5 @@
-yt-dlp
-ffmpeg
-flask
-gunicorn
-dotenv
+Flask>=3.0
+python-dotenv
 requests
-subprocess
-base64
-sys
+yt-dlp
+gunicorn
