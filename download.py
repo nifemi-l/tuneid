@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
 import sys
 import threading
 import os
-import subprocess
+import subprocess 
 from yt_dlp import YoutubeDL
 import requests
+import base64
 from dotenv import load_dotenv
 
 # Load API key from .env
@@ -13,28 +15,28 @@ if not API_KEY:
     print("Error: API_KEY not set in environment (.env)")
     sys.exit(1)
 
-# Shazam endpoint configuration
-SHAZAM_URL = "https://shazam.p.rapidapi.com/songs/detect"
+# Shazam endpoint configuration (raw PCM upload)
+# - Pulse code modulation converts analog audio signals into digital ones (binary)
+SHAZAM_URL = "https://shazam.p.rapidapi.com/songs/v2/detect"
 HEADERS = {
     "x-rapidapi-host": "shazam.p.rapidapi.com",
     "x-rapidapi-key": API_KEY,
-    "Content-Type": "text/plain"
+    "Content-Type": "text/plain",
+    "Accept": "application/json"
 }
 
-# Maximum duration (seconds) accepted by Shazam API
-MAX_DURATION = 12  # Shazam allows up to 12-second clips per request
+# Maximum duration (seconds) for snippet
+MAX_DURATION = 5  # Shazam recommends <=5s, <500KB payload
 
+def download_and_prepare_audio(url: str, output_template: str = "audio_snippet") -> str:
+    """Download best audio, extract to WAV, trim, convert to raw PCM (16-bit LE, mono, 44100 Hz) and return a path to the .raw file."""
 
-def download_and_trim_audio(url: str, output_template: str = "extracted_audio") -> str:
-    """
-    Download and extract audio from TikTok URL, then trim to MAX_DURATION.
-    Returns path to the trimmed WAV file.
-    """
-    # Step 1: Download best audio and extract to WAV
+    # Download & extract WAV
+    wav_file = f"{output_template}.wav"
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": output_template,
-        "quiet": False,
+        "quiet": True,
         "no_warnings": True,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
@@ -43,142 +45,118 @@ def download_and_trim_audio(url: str, output_template: str = "extracted_audio") 
         }]
     }
     with YoutubeDL(ydl_opts) as ydl:
-        print(f"Downloading and extracting to {output_template}.wav …")
         ydl.download([url])
 
-    original_wav = f"{output_template}.wav"
-    if not os.path.exists(original_wav):
-        print(f"Error: Expected file not found: {original_wav}")
-        sys.exit(1)
+    # Trim and convert to RAW PCM
+    # Construct the name of the output file ffmpeg will write the raw PCM data to
+    raw_file = f"{output_template}.raw"
 
-    # Step 2: Trim audio to MAX_DURATION seconds
-    trimmed_wav = f"{output_template}_trimmed.wav"
-    cmd = [
-        "ffmpeg", "-y",     # overwrite
-        "-i", original_wav,
+    # Using subprocess because it allows for the execution of commands normally ran in a shell
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-i", wav_file,
         "-t", str(MAX_DURATION),
-        trimmed_wav
-    ]
-    try:
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        print(f"Trimmed audio to {MAX_DURATION} seconds: {trimmed_wav}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error trimming audio: {e}", file=sys.stderr)
-        sys.exit(1)
+        "-f", "s16le",
+        "-acodec", "pcm_s16le",
+        "-ac", "1",
+        "-ar", "44100",
+        raw_file
+    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-    # Cleanup original
-    os.remove(original_wav)
-    print(f"Deleted original file: {original_wav}")
+    # Cleanup WAV
+    os.remove(wav_file)
+    print(f"Prepared raw PCM snippet: {raw_file}")
 
-    return trimmed_wav
+    return raw_file
 
 
-def recognize_song(audio_path: str) -> dict:
-    """
-    Send the raw audio bytes to the Shazam RapidAPI endpoint and return parsed metadata.
-    """
-    with open(audio_path, "rb") as f:
-        data = f.read()
-    resp = requests.post(SHAZAM_URL, headers=HEADERS, data=data)
+def recognize_song(raw_path: str) -> dict:
+    """Read raw PCM file, base64-encode, send as text/plain to Shazam v2 API, and return metadata."""
+    
+    with open(raw_path, "rb") as f:
+        b64bytes = base64.b64encode(f.read()) # Encode bc the API expects binary data to be b64 encoded
+
+    # Convert the b64 bytes to a string for payload transmission
+    payload = b64bytes.decode('ascii')
+
+    # Make request
+    resp = requests.post(SHAZAM_URL, headers=HEADERS, data=payload)
     if resp.status_code != 200:
         print(f"API Error {resp.status_code}: {resp.text}")
         sys.exit(1)
+
     data = resp.json()
     track = data.get("track", {})
-    match = data.get("match", {})
+
     return {
         "title": track.get("title"),
         "artist": track.get("subtitle"),
         "album": next(iter(track.get("sections", [{}])[0].get("metadata", [{}])), {}).get("text"),
-        "confidence": match.get("confidence")
     }
 
 
 def prompt_mode_flow():
-    """
-    Prompt user for URL, download, trim, and recognize.
-    """
+    """Execute the prompting for terminal mode."""
     url = input("Enter TikTok URL: ")
     if not url.strip():
         print("URL Is Required.")
         return
-    wav_file = download_and_trim_audio(url)
+    raw_file = download_and_prepare_audio(url)
     print("Recognizing track via Shazam…")
-    result = recognize_song(wav_file)
+    result = recognize_song(raw_file)
     print("--- Recognition Result ---")
     for k, v in result.items():
         print(f"{k.capitalize()}: {v}")
-    # Optionally cleanup trimmed file
-    os.remove(wav_file)
-    print(f"Deleted trimmed file: {wav_file}")
+    os.remove(raw_file)
 
 
 def gui_mode_flow():
-    """
-    GUI mode: prompt, download, trim, recognize.
-    """
+    """Execute the prompting for GUI mode."""
     try:
         import tkinter as tk
         from tkinter import ttk, messagebox
     except ImportError:
-        print("Tkinter Is Not Available On This System.")
+        print("Tkinter Not Available.")
         sys.exit(1)
 
     def on_download():
         url = entry.get().strip()
         if not url:
-            messagebox.showwarning("Input Required", "Please Enter A TikTok URL.")
+            messagebox.showwarning("Input Required", "Enter TikTok URL.")
             return
-
         progress.start()
         download_button.config(state=tk.DISABLED)
-
         def task():
             try:
-                wav_file = download_and_trim_audio(url)
-                res = recognize_song(wav_file)
+                raw_file = download_and_prepare_audio(url)
+                res = recognize_song(raw_file)
                 msg = "\n".join(f"{k.capitalize()}: {v}" for k, v in res.items())
                 messagebox.showinfo("Recognition Result", msg)
-                os.remove(wav_file)
+                os.remove(raw_file)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
             finally:
                 progress.stop()
                 download_button.config(state=tk.NORMAL)
-
         threading.Thread(target=task, daemon=True).start()
 
     root = tk.Tk()
     root.title("TikTok Audio Recognizer")
-
     frame = ttk.Frame(root, padding=20)
     frame.pack(fill=tk.BOTH, expand=True)
-
     ttk.Label(frame, text="TikTok URL:").pack(anchor=tk.W)
-    entry = ttk.Entry(frame, width=40)
-    entry.pack(fill=tk.X)
-
-    progress = ttk.Progressbar(frame, mode='indeterminate')
-    progress.pack(fill=tk.X, pady=10)
-
+    entry = ttk.Entry(frame, width=40); entry.pack(fill=tk.X)
+    progress = ttk.Progressbar(frame, mode='indeterminate'); progress.pack(fill=tk.X, pady=10)
     download_button = ttk.Button(frame, text="Download & Recognize", command=on_download)
     download_button.pack()
-
     root.mainloop()
 
 
 def main(prompt_mode: bool = False, gui_mode: bool = False):
-    """
-    Main entry. Choose a mode.
-    """
     if not (prompt_mode or gui_mode):
-        print("No Mode Enabled. Enable prompt_mode or gui_mode in main().")
-        sys.exit(1)
-    if prompt_mode:
-        prompt_mode_flow()
-    if gui_mode:
-        gui_mode_flow()
-
+        print("Enable prompt_mode or gui_mode in main()."); sys.exit(1)
+    if prompt_mode: prompt_mode_flow()
+    if gui_mode: gui_mode_flow()
 
 if __name__ == "__main__":
     main(prompt_mode=True, gui_mode=False)
