@@ -26,7 +26,7 @@ HEADERS = {
 }
 
 # Maximum duration (seconds) for snippet
-MAX_DURATION = 5  # Shazam recommends <=5s, <500KB payload
+MAX_DURATION = 8  # Shazam recommends <500KB payload. 8 seconds seems to be a sweet spot. Needs testing
 
 def download_and_prepare_audio(url: str, output_template: str = "audio_snippet") -> str:
     """Download best audio, extract to WAV, trim, convert to raw PCM (16-bit LE, mono, 44100 Hz) and return a path to the .raw file."""
@@ -117,7 +117,7 @@ def recognize_song(raw_path: str) -> dict:
 
 def prompt_mode_flow():
     """Execute the prompting for terminal mode."""
-    url = input("Enter TikTok URL: ")
+    url = input("Enter Video URL: ")
     if not url.strip():
         print("URL Is Required.")
         return
@@ -151,7 +151,7 @@ def gui_mode_flow():
     def on_download():
         url = entry.get().strip()
         if not url:
-            messagebox.showwarning("Input Required", "Enter TikTok URL.")
+            messagebox.showwarning("Input Required", "Enter Video URL.")
             return
         progress.start()
         download_button.config(state=tk.DISABLED)

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TuneID - Song Identifier</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="{{ url_for('static', filename='cassette-tape.svg') }}" type="image/svg+xml">
+  
+  <!-- Font Awesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" 
+  integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" 
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+  <header class="header">
+    <div class="logo-container">
+      <i class="fas fa-music app-icon"></i>
+      <span class="app-name">TuneID</span>
+    </div>
+    <button id="toggle-history" class="btn history-btn">
+      <i class="fas fa-history"></i> History
+    </button>
+  </header>
+
+  <main class="main">
+    <div class="content-wrapper">
+      <h1 class="title">Identify Any Song</h1>
+      <p class="subtitle">Enter a URL to identify the song playing in the video</p>
+      
+      <div class="disclaimer">
+        <i class="fas fa-info-circle"></i>
+        The song must be present in the first 8 seconds of the video
+      </div>
+      
+      <form id="recognize-form" class="form">
+        <div class="input-container">
+          <i class="fas fa-link input-icon"></i>
+          <input
+            type="text"
+            id="url-input"
+            class="input"
+            placeholder="Paste TikTok or video URL here"
+            required
+          />
+        </div>
+        <button type="submit" class="btn submit-btn">
+          <i class="fas fa-search"></i> Identify
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <div id="overlay" class="modal-overlay hidden"></div>
+
+  <!-- Progress Modal -->
+  <div id="progress-modal" class="modal progress-modal hidden">
+    <div class="modal-header">
+      <h3><i class="fas fa-music-note pulse"></i> Identifying Song</h3>
+      <button class="close-btn" onclick="closeProgress()"><i class="fas fa-times"></i></button>
+    </div>
+    
+    <!-- Progress bar -->
+    <div class="progress-bar">
+      <div id="progress-fill" class="progress-fill"></div>
+    </div>
+
+    <ul class="progress-list">
+      <li data-step="1">
+        <span class="icon pending"><i class="fas fa-hourglass"></i></span>
+        <span>Extracting audio</span>
+      </li>
+      <li data-step="2">
+        <span class="icon pending"><i class="fas fa-hourglass"></i></span>
+        <span>Processing sound</span>
+      </li>
+      <li data-step="3">
+        <span class="icon pending"><i class="fas fa-hourglass"></i></span>
+        <span>Matching with Shazam</span>
+      </li>
+      <li data-step="4">
+        <span class="icon pending"><i class="fas fa-hourglass"></i></span>
+        <span>Retrieving song details</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Result Modal -->
+  <div id="modal" class="modal result-modal hidden"></div>
+
+  <!-- History pane -->
+  <aside id="history-pane" class="history-pane hidden">
+    <div class="history-header">
+      <h2>Recent Searches</h2>
+      <button class="close-btn" id="close-history"><i class="fas fa-times"></i></button>
+    </div>
+    <ul id="history-list"></ul>
+    <div class="empty-history hidden">
+      <i class="fas fa-search"></i>
+      <p>No search history yet</p>
+    </div>
+  </aside>
+
+  <script>
+  ;(() => {
+    const form = document.getElementById('recognize-form');
+    const urlInput = document.getElementById('url-input');
+    const overlay = document.getElementById('overlay');
+    const progressModal = document.getElementById('progress-modal');
+    const resultModal = document.getElementById('modal');
+    const historyBtn = document.getElementById('toggle-history');
+    const closeHistoryBtn = document.getElementById('close-history');
+    const historyPane = document.getElementById('history-pane');
+    const historyList = document.getElementById('history-list');
+    const emptyHistory = document.querySelector('.empty-history');
+    const progressFill = document.getElementById('progress-fill');
+    const TOTAL_STEPS = 4;
+
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+    function openOverlay() { overlay.classList.remove('hidden'); }
+    function closeOverlay() { overlay.classList.add('hidden'); }
+
+    function openProgress() {
+      openOverlay();
+      progressFill.style.width = '0%';
+      progressFill.classList.remove('error','success');
+      progressModal.classList.remove('hidden');
+      
+      // Reset all steps to pending
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const li = progressModal.querySelector(`li[data-step="${i}"]`);
+        const icon = li.querySelector('.icon');
+        icon.className = 'icon pending';
+        icon.innerHTML = '<i class="fas fa-hourglass"></i>';
+      }
+    }
+    
+    function closeProgress() {
+      progressModal.classList.add('hidden');
+      closeOverlay();
+    }
+
+    function openResult(html) {
+      resultModal.innerHTML = html;
+      openOverlay();
+      resultModal.classList.remove('hidden');
+    }
+    
+    function closeResult() {
+      resultModal.classList.add('hidden');
+      closeOverlay();
+    }
+
+    function updateStep(n, status) {
+      // Update list icon
+      const li = progressModal.querySelector(`li[data-step="${n}"]`);
+      const icon = li.querySelector('.icon');
+      icon.className = 'icon ' + status;
+      
+      if (status === 'success') {
+        icon.innerHTML = '<i class="fas fa-check"></i>';
+      } else if (status === 'error') {
+        icon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+      } else if (status === 'running') {
+        icon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      }
+
+      // Update progress bar
+      const pct = (n / TOTAL_STEPS) * 100;
+      progressFill.style.width = `${pct}%`;
+      
+      if (status === 'success') {
+        progressFill.classList.add('success');
+      } else if (status === 'error') {
+        progressFill.classList.add('error');
+      }
+    }
+
+    // This is an event listener for delete buttons
+    function setupDeleteListeners() {
+    const deleteButtons = document.querySelectorAll('.delete-history-item');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const index = parseInt(button.dataset.index);
+        const hist = JSON.parse(localStorage.getItem('tuneid_history') || '[]');
+        
+        // Remove the item at the specified index
+        hist.splice(index, 1);
+        
+        // Save updated history
+        localStorage.setItem('tuneid_history', JSON.stringify(hist));
+        
+        // Reload history
+        loadHistory();
+        });
+    });
+    }
+
+    // History functionality
+    function loadHistory() {
+      const hist = JSON.parse(localStorage.getItem('tuneid_history') || '[]');
+        
+        if (hist.length === 0) {
+        historyList.innerHTML = '';
+        emptyHistory.classList.remove('hidden');
+        return;
+        }
+      
+        emptyHistory.classList.add('hidden');
+        historyList.innerHTML = hist.map((e, index) => `
+        <li class="history-item">
+            <div class="history-item-content">
+            ${e.images && e.images.cover_art_hq ? 
+                `<img src="${e.images.cover_art_hq}" class="history-cover" alt="Cover Art"/>` : 
+                `<div class="history-cover-placeholder"><i class="fas fa-music"></i></div>`
+            }
+            <div class="history-details">
+                <strong>${e.title || 'Unknown'}</strong>
+                <span>${e.artist || 'Unknown Artist'}</span>
+                <small>${new Date(e.searchedAt).toLocaleDateString()}</small>
+            </div>
+            </div>
+            <button class="delete-history-item" data-index="${index}">
+            <i class="fas fa-trash-alt"></i>
+            </button>
+        </li>
+        `).join('');
+        
+        setupDeleteListeners();
+    }
+    
+    // Toggle history panel
+    historyBtn.addEventListener('click', () => {
+      historyPane.classList.remove('hidden');
+      overlay.classList.remove('hidden');
+      loadHistory();
+    });
+    
+    closeHistoryBtn.addEventListener('click', () => {
+      historyPane.classList.add('hidden');
+      overlay.classList.add('hidden');
+    });
+
+    // Close modals when clicking overlay
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeProgress();
+        closeResult();
+        historyPane.classList.add('hidden');
+      }
+    });
+
+    // Handle form submission
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      // Show progress modal
+      openProgress();
+      
+      try {
+        // Step 1 - Extracting audio
+        updateStep(1, 'running');
+        await sleep(450);
+        updateStep(1, 'success');
+
+        // Step 2 - Processing sound
+        updateStep(2, 'running');
+        await sleep(500);
+        updateStep(2, 'success');
+
+        // Step 3 - Matching with Shazam
+        updateStep(3, 'running');
+        const resp = await fetch('/recognize', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `url=${encodeURIComponent(url)}`
+        });
+        
+        if (!resp.ok) {
+          updateStep(3, 'error');
+          throw new Error(`Server returned ${resp.status}: ${resp.statusText}`);
+        }
+        
+        updateStep(3, 'success');
+
+        // Step 4 - Retrieving song details
+        updateStep(4, 'running');
+        const data = await resp.json();
+        await sleep(350);
+        updateStep(4, 'success');
+
+        // Close progress modal after a brief delay to show success
+        setTimeout(() => {
+          closeProgress();
+          
+          // Save to history
+          const hist = JSON.parse(localStorage.getItem('tuneid_history') || '[]');
+          hist.unshift({...data, searchedAt: Date.now()});
+          localStorage.setItem('tuneid_history', JSON.stringify(hist.slice(0, 50)));
+
+          // Show result modal
+          openResult(`
+            <div class="modal-header">
+              <h3>Song Found!</h3>
+              <button class="close-btn" onclick="closeResult()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-content result">
+              <img src="${data.images.cover_art_hq}" class="cover" alt="Cover Art"/>
+              <div class="result-details">
+                <h2>${data.title}</h2>
+                <h3>${data.artist}</h3>
+                <p class="album">${data.album}</p>
+              </div>
+              <div class="streaming-services">
+                <p>Listen on:</p>
+                <div class="service-icons">
+                  <a href="https://open.spotify.com/search/${encodeURIComponent(data.title+' '+data.artist)}" target="_blank" class="service-btn spotify">
+                    <i class="fab fa-spotify"></i> Spotify
+                  </a>
+                  <a href="https://music.apple.com/us/search?term=${encodeURIComponent(data.title+' '+data.artist)}" target="_blank" class="service-btn apple">
+                    <i class="fab fa-apple"></i> Apple Music
+                  </a>
+                </div>
+              </div>
+            </div>
+          `);
+        }, 600);
+        
+      } catch(err) {
+        // Mark final step as error
+        updateStep(4, 'error');
+        
+        // Close progress modal and show error
+        setTimeout(() => {
+          closeProgress();
+          openResult(`
+            <div class="modal-header">
+              <h3>Song Not Found</h3>
+              <button class="close-btn" onclick="closeResult()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-content error-content">
+              <div class="error-icon">
+                <i class="fas fa-exclamation-circle"></i>
+              </div>
+              <p>Sorry, we couldn't identify the song in this video.</p>
+              <p class="error-details">Make sure:</p>
+              <ul class="error-list">
+                <li>The song is playing in the first 8 seconds</li>
+                <li>The URL is valid and accessible</li>
+                <li>There's clear audio with minimal background noise</li>
+              </ul>
+              <button class="btn try-again-btn" onclick="closeResult()">Try Again</button>
+            </div>
+          `);
+        }, 800);
+      }
+    });
+    
+    // Expose functions to be used by onclick
+    window.closeProgress = closeProgress;
+    window.closeResult = closeResult;
+  })();
+  </script>
+</body>
+</html>

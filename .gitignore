@@ -1,2 +1,6 @@
 .env
 test.txt
+script/example.yml
+__pycache__/
+*.pyc
+audio_snippet.*
