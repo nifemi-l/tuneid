@@ -753,8 +753,9 @@ body::after {
   position: absolute;
   color: rgba(255, 255, 255, 0.3);
   font-size: 1.8rem;
-  animation: float-note 8s linear infinite;
+  animation: float-note 8s linear infinite both; /* apply 0% styles during delay */
   text-shadow: 0 0 5px rgba(0, 130, 252, 0.3);
+  animation-fill-mode: backwards;
 }
 
 /* Sound wave animations */
@@ -806,7 +807,10 @@ body::after {
     opacity: 0;
     transform: translateY(100vh) rotate(0deg);
   }
-  50% {
+  10% {
+    opacity: 0.6;
+  }
+  90% {
     opacity: 0.6;
   }
   100% {
