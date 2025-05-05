@@ -372,6 +372,73 @@
     window.closeProgress = closeProgress;
     window.closeResult = closeResult;
   })();
+
+  // Attempt to make cool background
+  function createMusicNotes() {
+  const notesContainer = document.createElement('div');
+  notesContainer.className = 'music-notes';
+  document.body.appendChild(notesContainer);
+  
+  const noteSymbols = ['♪', '♫', '♩', '♬', '♭', '♮', '♯'];
+  const noteCount = 20;
+  
+  for (let i = 0; i < noteCount; i++) {
+    const note = document.createElement('div');
+    note.className = 'note';
+    note.textContent = noteSymbols[Math.floor(Math.random() * noteSymbols.length)];
+    
+    // Random positioning
+    note.style.left = `${Math.random() * 100}%`;
+    note.style.top = `${Math.random() * 100}%`;
+    
+    // Random animation duration and delay
+    const duration = 8 + Math.random() * 10;
+    const delay = Math.random() * 15;
+    note.style.animationDuration = `${duration}s`;
+    note.style.animationDelay = `${delay}s`;
+    
+    // Random size
+    const size = 1 + Math.random();
+    note.style.fontSize = `${size}rem`;
+    
+    notesContainer.appendChild(note);
+  }
+}
+
+// Create sound waves
+function createSoundWaves() {
+  const wavesContainer = document.createElement('div');
+  wavesContainer.className = 'sound-waves';
+  document.body.appendChild(wavesContainer);
+  
+  const waveCount = 40;
+  
+  for (let i = 0; i < waveCount; i++) {
+    const wave = document.createElement('div');
+    wave.className = 'wave';
+    
+    // Random animation duration and delay
+    const duration = 1 + Math.random() * 1.5;
+    const delay = Math.random() * 1;
+    wave.style.animationDuration = `${duration}s`;
+    wave.style.animationDelay = `${delay}s`;
+    
+    // Random opacity
+    wave.style.opacity = 0.1 + Math.random() * 0.3;
+    
+    // Random colors
+    const hue = 210 + Math.random() * 40; // Blue variations
+    wave.style.backgroundColor = `hsla(${hue}, 70%, 70%, 0.3)`;
+    
+    wavesContainer.appendChild(wave);
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  createMusicNotes();
+  createSoundWaves();
+});
   </script>
 </body>
 </html>
