@@ -3,3 +3,7 @@ ffmpeg
 flask
 gunicorn
 dotenv
+requests
+subprocess
+base64
+sys
