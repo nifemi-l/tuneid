@@ -31,13 +31,26 @@
   --transition-normal: 0.3s ease;
 }
 
+/* Blob animation svg */
+/* pin blob behind everything */
+.background-svg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -3;         
+  pointer-events: none;
+}
+body::before { z-index: -2; }
+body::after  { z-index: -1;}
+
 /* Base Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
-
 
 @keyframes gradientMove {
   0% {
@@ -50,6 +63,8 @@
     background-position: 0% 50%;
   }
 }
+/* End of blob */ 
+
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -120,7 +135,7 @@ a:hover {
   width: 100%;
   text-align: center;
   padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 1);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
@@ -687,206 +702,4 @@ a:hover {
 
 .service-btn span {
   font-weight: 500;
-}
-
-
-
-/* Background update */
-/* Updated Background Styles */
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.5;
-  background: var(--bg);
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* Music-themed animated background */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(0,130,252,0.9) 0%, 
-    rgba(0,130,252,0.7) 35%,
-    rgba(0,216,160,0.6) 100%
-  );
-  z-index: -2;
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.25) 0%, transparent 20%),
-    radial-gradient(circle at 90% 30%, rgba(255,255,255,0.2) 0%, transparent 15%),
-    radial-gradient(circle at 40% 80%, rgba(255,255,255,0.18) 0%, transparent 25%),
-    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.15) 0%, transparent 20%);
-  z-index: -1;
-  animation: shimmer 15s infinite alternate;
-}
-
-/* Music notes floating animation */
-.music-notes {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.note {
-  position: absolute;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 1.8rem;
-  animation: float-note 8s linear infinite both; /* apply 0% styles during delay */
-  text-shadow: 0 0 5px rgba(0, 130, 252, 0.3);
-  animation-fill-mode: backwards;
-}
-
-/* Sound wave animations */
-.sound-waves {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 60%;
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  pointer-events: none;
-  z-index: -1;
-  opacity: 0.5;
-}
-
-.wave {
-  width: 3px;
-  background-color: rgba(255, 255, 255, 0.2);
-  height: 100%;
-  border-radius: 15px;
-  animation: wave 1.5s infinite ease-in-out;
-}
-
-/* Create 24 waves with different heights and delays */
-@keyframes wave {
-  0%, 100% {
-    height: 20%;
-  }
-  50% {
-    height: 60%;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 0% 0%;
-    opacity: 0.7;
-  }
-  100% {
-    background-position: 100% 100%;
-    opacity: 1;
-  }
-}
-
-@keyframes float-note {
-  0% {
-    opacity: 0;
-    transform: translateY(100vh) rotate(0deg);
-  }
-  10% {
-    opacity: 0.6;
-  }
-  90% {
-    opacity: 0.6;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-100px) rotate(360deg);
-  }
-}
-
-/* Content wrapper with glass morphism effect */
-.content-wrapper {
-  max-width: 600px;
-  width: 100%;
-  text-align: center;
-  padding: var(--spacing-xl);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 130, 252, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.content-wrapper:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 36px rgba(0, 130, 252, 0.25);
-}
-
-/* Add a subtle pattern to content wrapper */
-.content-wrapper::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    radial-gradient(circle at 10% 10%, rgba(0, 130, 252, 0.05) 0%, transparent 15%),
-    radial-gradient(circle at 90% 90%, rgba(0, 216, 160, 0.05) 0%, transparent 15%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Enhanced app logo animation */
-@keyframes pulse-glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 2px rgba(0, 130, 252, 0.5));
-  }
-  50% {
-    filter: drop-shadow(0 0 8px rgba(0, 130, 252, 0.8));
-  }
-}
-
-.app-icon {
-  color: var(--primary);
-  font-size: 1.5rem;
-  margin-right: var(--spacing-sm);
-}
-
-/* Header with glassmorphism */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-md) var(--spacing-lg);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  position: relative;
-  z-index: 10;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* Enhanced button hover effects */
-.btn:hover {
-  background: var(--primary-light);
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0, 130, 252, 0.3);
 }
