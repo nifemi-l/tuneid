@@ -295,8 +295,8 @@
         historyList.innerHTML = hist.map((e, index) => `
         <li class="history-item">
             <div class="history-item-content">
-            ${e.images && e.images.cover_art_hq ? 
-                `<img src="${e.images.cover_art_hq}" class="history-cover" alt="Cover Art"/>` : 
+            ${e.images && e.images.cover_art ? 
+                `<img src="${e.images.cover_art}" class="history-cover" alt="Cover Art"/>` : 
                 `<div class="history-cover-placeholder"><i class="fas fa-music"></i></div>`
             }
             <div class="history-details">
@@ -385,6 +385,9 @@
           hist.unshift({...data, searchedAt: Date.now()});
           localStorage.setItem('tuneid_history', JSON.stringify(hist.slice(0, 50)));
 
+          // Clear the input box
+          urlInput.value = ''; 
+
           // Show result modal
           openResult(`
             <div class="modal-header">
@@ -392,7 +395,7 @@
               <button class="close-btn" onclick="window.closeResult()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-content result">
-              <img src="${data.images.cover_art_hq}" class="cover" alt="Cover Art"/>
+              <img src="${data.images.cover_art}" class="cover" alt="Cover Art"/>
               <div class="result-details">
                 <h2>${data.title}</h2>
                 <h3>${data.artist}</h3>

@@ -83,10 +83,18 @@ def recognize_song(raw_path: str) -> dict:
 
     # Pictorial info
     images = track.get("images", {})
+
+    # Static place holder (in case Shazam doesn't return any art)
+    placeholder = "static/img/no-cover.png"
+    cover = images.get("coverart") or placeholder
+    cover_hq = images.get("coverarthq") or placeholder
+
+    # print(placeholder, cover, cover_hq)
+
     result["images"] = {
-        "background": images.get("background"),
-        "cover_art": images.get("coverart"),
-        "cover_art_hq": images.get("coverarthq"),
+        "background": images.get("background") or placeholder,
+        "cover_art": cover,
+        "cover_art_hq": cover_hq,
     }
 
     # Additional images from metapages
