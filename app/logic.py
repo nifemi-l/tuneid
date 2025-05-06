@@ -39,20 +39,31 @@ def download_and_prepare_audio(url: str, output_template: str = "audio_snippet")
             "preferredquality": "192",
         }]
     }
-    with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
 
-    subprocess.run([
-        "ffmpeg", "-y",
-        "-i", wav_file,
-        "-t", str(MAX_DURATION),
-        "-f", "s16le",
-        "-acodec", "pcm_s16le",
-        "-ac", "1",
-        "-ar", "44100",
-        raw_file
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    # Handle possible audio extraction errors
+    # - Ensure url validity/compatibility
+    try: 
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except: 
+        raise ValueError("Audio could not be extracted from URL")
 
+    # Handle possible processing issues
+    try: 
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-i", wav_file,
+            "-t", str(MAX_DURATION),
+            "-f", "s16le",
+            "-acodec", "pcm_s16le",
+            "-ac", "1",
+            "-ar", "44100",
+            raw_file
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e: 
+        raise RuntimeError("Error processing audio")
+    
+    # Remove file on server since it's no longer necessary
     try:
         os.remove(wav_file)
     except OSError:
