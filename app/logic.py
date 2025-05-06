@@ -23,10 +23,9 @@ HEADERS = {
 # Maximum duration (seconds) for snippet
 MAX_DURATION = 8
 
-def download_and_prepare_audio(url: str, output_template: str = "audio_snippet") -> str:
-    """Download best audio, extract to WAV, trim, convert to raw PCM and return raw path."""
+def download_audio(url: str, output_template: str = "audio_snippet") -> str:
+    """Download best audio quality and extract to WAV format."""
     wav_file = f"{output_template}.wav"
-    raw_file = f"{output_template}.raw"
 
     ydl_opts = {
         "format": "bestaudio/best",
@@ -40,16 +39,18 @@ def download_and_prepare_audio(url: str, output_template: str = "audio_snippet")
         }]
     }
 
-    # Handle possible audio extraction errors
-    # - Ensure url validity/compatibility
-    try: 
+    try:
         with YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
-    except: 
+        return wav_file
+    except:
         raise ValueError("Audio could not be extracted from URL")
 
-    # Handle possible processing issues
-    try: 
+def convert_to_pcm(wav_file: str, output_template: str = "audio_snippet") -> str:
+    """Convert WAV to raw PCM format with specific parameters."""
+    raw_file = f"{output_template}.raw"
+
+    try:
         subprocess.run([
             "ffmpeg", "-y",
             "-i", wav_file,
@@ -60,15 +61,20 @@ def download_and_prepare_audio(url: str, output_template: str = "audio_snippet")
             "-ar", "44100",
             raw_file
         ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e: 
+        return raw_file
+    except subprocess.CalledProcessError:
         raise RuntimeError("Error processing audio")
-    
-    # Remove file on server since it's no longer necessary
-    try:
-        os.remove(wav_file)
-    except OSError:
-        pass
+    finally:
+        # Clean up WAV file
+        try:
+            os.remove(wav_file)
+        except OSError:
+            pass
 
+def download_and_prepare_audio(url: str, output_template: str = "audio_snippet") -> str:
+    """Download best audio, extract to WAV, trim, convert to raw PCM and return raw path."""
+    wav_file = download_audio(url, output_template)
+    raw_file = convert_to_pcm(wav_file, output_template)
     return raw_file
 
 def recognize_song(raw_path: str) -> dict:

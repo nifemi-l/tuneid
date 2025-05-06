@@ -362,14 +362,32 @@
       try {
         // Step 1 - Extracting audio
         updateStep(1, 'running');
-        await sleep(450);
+        const extractResp = await fetch('/validate-extraction', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `url=${encodeURIComponent(url)}`
+        });
+    
+        if (!extractResp.ok) {
+            updateStep(1, 'error');
+            throw new Error('Audio extraction failed');
+        }
         updateStep(1, 'success');
 
         // Step 2 - Processing sound
         updateStep(2, 'running');
-        await sleep(500);
+        const processResp = await fetch('/validate-processing', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `url=${encodeURIComponent(url)}`
+        });
+    
+        if (!processResp.ok) {
+            updateStep(2, 'error');
+            throw new Error('Sound processing failed');
+        }
         updateStep(2, 'success');
-
+        
         // Step 3 - Matching with Shazam
         updateStep(3, 'running');
         const resp = await fetch('/recognize', {
@@ -377,17 +395,23 @@
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: `url=${encodeURIComponent(url)}`
         });
-        
+
         if (!resp.ok) {
           updateStep(3, 'error');
           throw new Error(`Server returned ${resp.status}: ${resp.statusText}`);
         }
-        
         updateStep(3, 'success');
 
         // Step 4 - Retrieving song details
         updateStep(4, 'running');
         const data = await resp.json();
+
+        // Check data validity
+        if (!data || data.error) {
+          updateStep(4, 'error');
+          throw new Error('No song found');
+        }
+
         await sleep(350);
         updateStep(4, 'success');
 
@@ -437,9 +461,6 @@
         }, 600);
         
       } catch(err) {
-        // Mark final step as error
-        updateStep(4, 'error');
-        
         // Close progress modal and show error
         setTimeout(() => {
           closeProgress();
@@ -452,11 +473,11 @@
               <div class="error-icon">
                 <i class="fas fa-exclamation-circle"></i>
               </div>
-              <p>Sorry, we couldn't identify the song in this video.</p>
+              <p>${err.message || 'An unexpected error occured'}.</p>
               <p class="error-details">Make sure:</p>
               <ul class="error-list">
                 <li>The song is playing in the first 5 seconds</li>
-                <li>The URL is valid and accessible</li>
+                <li>The URL is valid and leads to a video</li>
                 <li>There's clear audio with minimal background noise</li>
               </ul>
               <button class="btn try-again-btn" onclick="window.closeResult()">Try Again</button>
@@ -471,73 +492,6 @@
     window.closeResult = closeResult;
     window.startRippleEffect = startRippleEffect; // Also expose startRippleEffect if needed
   })();
-  
-//   // Attempt to make cool background
-//   function createMusicNotes() {
-//   const notesContainer = document.createElement('div');
-//   notesContainer.className = 'music-notes';
-//   document.body.appendChild(notesContainer);
-  
-//   const noteSymbols = ['♪', '♫', '♩', '♬', '♭', '♮', '♯'];
-//   const noteCount = 20;
-  
-//   for (let i = 0; i < noteCount; i++) {
-//     const note = document.createElement('div');
-//     note.className = 'note';
-//     note.textContent = noteSymbols[Math.floor(Math.random() * noteSymbols.length)];
-    
-//     // Random positioning
-//     note.style.left = `${Math.random() * 100}%`;
-//     note.style.top = `${Math.random() * 100}%`;
-    
-//     // Random animation duration and delay
-//     const duration = 8 + Math.random() * 10;
-//     note.style.animationDuration = `${duration}s`
-//     const delay = Math.random() * 2;
-//     note.style.animationDelay = `${delay}s`;
-    
-//     // Random size
-//     const size = 1 + Math.random();
-//     note.style.fontSize = `${size}rem`;
-    
-//     notesContainer.appendChild(note);
-//   }
-// }
-
-// // Create sound waves
-// function createSoundWaves() {
-//   const wavesContainer = document.createElement('div');
-//   wavesContainer.className = 'sound-waves';
-//   document.body.appendChild(wavesContainer);
-  
-//   const waveCount = 40;
-  
-//   for (let i = 0; i < waveCount; i++) {
-//     const wave = document.createElement('div');
-//     wave.className = 'wave';
-    
-//     // Random animation duration and delay
-//     const duration = 1 + Math.random() * 1.5;
-//     const delay = Math.random() * 1;
-//     wave.style.animationDuration = `${duration}s`;
-//     wave.style.animationDelay = `${delay}s`;
-    
-//     // Random opacity
-//     wave.style.opacity = 0.1 + Math.random() * 0.3;
-    
-//     // Random colors
-//     const hue = 210 + Math.random() * 40; // Blue variations
-//     wave.style.backgroundColor = `hsla(${hue}, 70%, 70%, 0.3)`;
-    
-//     wavesContainer.appendChild(wave);
-//   }
-// }
-
-// // Initialize on page load
-// document.addEventListener('DOMContentLoaded', () => {
-//   createMusicNotes();
-//   createSoundWaves();
-// });
   </script>
 </body>
 </html>
