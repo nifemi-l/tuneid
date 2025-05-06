@@ -66,10 +66,24 @@ def recognize_song(raw_path: str) -> dict:
         payload = base64.b64encode(f.read()).decode('ascii')
 
     resp = requests.post(SHAZAM_URL, headers=HEADERS, data=payload, timeout=10)
+
+    # Check for entity too large error. This should not silently fail
+    if resp.status_code == 413: 
+        # Payload too large
+        raise RuntimeError("Audio payload exceeds Shazam's 5s limit; try a shorter clip.")
+    elif not resp.ok: 
+        # Other errors
+        raise RuntimeError(f"API Error {resp.status_code}: {resp.text}")
+    
     resp.raise_for_status()
     data = resp.json()
     track = data.get("track", {})
 
+    # Ensure the found track is valid
+    # - Precaution for silent failure
+    if not track or not track.get("title") or not track.get("subtitle"): 
+        raise ValueError("Song not found")
+        
     # Basic track info
     # - Other pertinent information will be fed here
     result =  {
