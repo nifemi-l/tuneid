@@ -87,7 +87,7 @@ def download_audio(url: str, output_template: str = "audio_snippet") -> str:
         "max_sleep_interval": 3,
         "extractor_args": {
             "youtube": {
-                "player_client": ["web", "android"],
+                "player_client": ["android"],
                 "skip": ["hls", "dash"]
             }
         }
