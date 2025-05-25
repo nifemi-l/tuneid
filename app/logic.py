@@ -68,76 +68,123 @@ def get_browser_for_cookies():
         return None
     
 def download_audio(url: str, output_template: str = "audio_snippet") -> str:
-    """Download best audio quality and extract to WAV format with cookie support."""
+    """Download best audio quality and extract to WAV format with YouTube-specific bypasses."""
     wav_file = f"{output_template}.wav"
 
-    # Base yt-dlp options
-    ydl_opts = {
+    # Method 1: TV Embedded (should be the most reliable for servers)
+    ydl_opts_tv = {
         "format": "bestaudio/best",
         "outtmpl": output_template,
-        "quiet": True,
-        "no_warnings": True,
+        "quiet": False,  # Show what's happening
+        "no_warnings": False,
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "wav",
             "preferredquality": "192",
         }],
-        # Anti-bot detection measures
-        "sleep_interval": 1,
-        "max_sleep_interval": 3,
         "extractor_args": {
             "youtube": {
-                "player_client": ["android"],
-                "skip": ["hls", "dash"]
+                "player_client": ["tv_embedded"],
             }
         }
     }
-
-    # Try with browser cookies first
+    
+    try:
+        print("Trying TV embedded client...")
+        with YoutubeDL(ydl_opts_tv) as ydl:
+            ydl.download([url])
+        return wav_file
+    except Exception as e:
+        print(f"TV embedded client failed: {e}")
+    
+    # Method 2: iOS client
+    ydl_opts_ios = {
+        "format": "bestaudio/best",
+        "outtmpl": output_template,
+        "quiet": False,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "wav",
+            "preferredquality": "192",
+        }],
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["ios"],
+            }
+        }
+    }
+    
+    try:
+        print("Trying iOS client...")
+        with YoutubeDL(ydl_opts_ios) as ydl:
+            ydl.download([url])
+        return wav_file
+    except Exception as e:
+        print(f"iOS client failed: {e}")
+    
+    # Method 3: Web with Googlebot user agent
+    ydl_opts_bot = {
+        "format": "bestaudio/best", 
+        "outtmpl": output_template,
+        "quiet": False,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "wav", 
+            "preferredquality": "192",
+        }],
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web"],
+                "player_skip": ["webpage", "configs"],
+            }
+        },
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+        }
+    }
+    
+    try:
+        print("Trying Googlebot user agent...")
+        with YoutubeDL(ydl_opts_bot) as ydl:
+            ydl.download([url])
+        return wav_file
+    except Exception as e:
+        print(f"Googlebot method failed: {e}")
+    
+    # Method 4: Try browser cookies (prev. unsuccessful approach)
     browser = get_browser_for_cookies()
     if browser:
         try:
-            ydl_opts_with_cookies = ydl_opts.copy()
+            print(f"Trying browser cookies with {browser}...")
+            ydl_opts_cookies = {
+                "format": "bestaudio/best",
+                "outtmpl": output_template,
+                "quiet": False,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "wav",
+                    "preferredquality": "192",
+                }],
+            }
             
             # Handle special cases for Linux Flatpak installations
             if platform.system().lower() == 'linux' and browser == 'chrome':
                 flatpak_chrome_path = os.path.expanduser('~/.var/app/com.google.Chrome/')
                 if os.path.exists(flatpak_chrome_path):
-                    ydl_opts_with_cookies["cookiesfrombrowser"] = f"chrome:{flatpak_chrome_path}"
+                    ydl_opts_cookies["cookiesfrombrowser"] = f"chrome:{flatpak_chrome_path}"
                 else:
-                    ydl_opts_with_cookies["cookiesfrombrowser"] = browser
+                    ydl_opts_cookies["cookiesfrombrowser"] = browser
             else:
-                ydl_opts_with_cookies["cookiesfrombrowser"] = browser
+                ydl_opts_cookies["cookiesfrombrowser"] = browser
             
-            with YoutubeDL(ydl_opts_with_cookies) as ydl:
+            with YoutubeDL(ydl_opts_cookies) as ydl:
                 ydl.download([url])
             return wav_file
             
         except Exception as e:
-            print(f"Cookie method failed with {browser}, trying fallback methods...")
-    
-    # Fallback 1: Try without cookies but with user agent
-    try:
-        ydl_opts_fallback = ydl_opts.copy()
-        ydl_opts_fallback["http_headers"] = { # Spoof
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
+            print(f"Cookie method failed with {browser}: {e}")
         
-        with YoutubeDL(ydl_opts_fallback) as ydl:
-            ydl.download([url])
-        return wav_file
-        
-    except Exception as e:
-        print(f"Fallback method 1 failed, trying final fallback...")
-    
-    # Fallback 2: Basic download attempt
-    try:
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        return wav_file
-        
-    except Exception as e:
-        raise ValueError(f"Audio could not be extracted from URL. All methods failed. Last error: {str(e)}")
+    raise ValueError(f"All YouTube bypass methods failed. YouTube may be temporarily blocking server access.")
 
 def convert_to_pcm(wav_file: str, output_template: str = "audio_snippet") -> str:
     """Convert WAV to raw PCM format with specific parameters."""
