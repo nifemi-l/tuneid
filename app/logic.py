@@ -28,15 +28,13 @@ MAX_DURATION = 8
 def get_browser_for_cookies():
     """Detect available browsers and return the best option for cookie extraction."""
     browsers = ['chrome', 'firefox', 'edge', 'safari', 'opera']
-    
-    # Check which browsers are installed
     available_browsers = []
-    
     system = platform.system().lower()
+    
+    print(f"System detected: {system}")  # DEBUG
     
     for browser in browsers:
         if system == 'windows':
-            # Windows browser detection
             if browser == 'chrome' and shutil.which('chrome'):
                 available_browsers.append('chrome')
             elif browser == 'firefox' and shutil.which('firefox'):
@@ -44,7 +42,6 @@ def get_browser_for_cookies():
             elif browser == 'edge' and shutil.which('msedge'):
                 available_browsers.append('edge')
         elif system == 'darwin':  # macOS
-            # macOS browser detection
             if browser == 'chrome' and os.path.exists('/Applications/Google Chrome.app'):
                 available_browsers.append('chrome')
             elif browser == 'firefox' and os.path.exists('/Applications/Firefox.app'):
@@ -54,27 +51,22 @@ def get_browser_for_cookies():
             elif browser == 'edge' and os.path.exists('/Applications/Microsoft Edge.app'):
                 available_browsers.append('edge')
         else:  # Linux
-            # Linux browser detection
             if browser == 'chrome' and (shutil.which('google-chrome') or shutil.which('chromium')):
                 available_browsers.append('chrome')
+                print(f"Found Chrome: {shutil.which('google-chrome') or shutil.which('chromium')}")  # DEBUG
             elif browser == 'firefox' and shutil.which('firefox'):
                 available_browsers.append('firefox')
+                print(f"Found Firefox: {shutil.which('firefox')}")  # DEBUG
             elif browser == 'edge' and shutil.which('microsoft-edge'):
                 available_browsers.append('edge')
     
-    # Chrome preference
-    # if 'chrome' in available_browsers:
-    #     return 'chrome'
-    # elif available_browsers:
-    #     return available_browsers[0]
-    # else:
-    #     return None
+    print(f"Available browsers: {available_browsers}")  # DEBUG
     
     try: 
         return available_browsers[0]
     except: 
         return None
-
+    
 def download_audio(url: str, output_template: str = "audio_snippet") -> str:
     """Download best audio quality and extract to WAV format with cookie support."""
     wav_file = f"{output_template}.wav"
