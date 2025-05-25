@@ -4,6 +4,8 @@ import base64
 import requests
 from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
+import platform
+import shutil
 
 # Load API key
 load_dotenv()
@@ -23,10 +25,61 @@ HEADERS = {
 # Maximum duration (seconds) for snippet
 MAX_DURATION = 8
 
+def get_browser_for_cookies():
+    """Detect available browsers and return the best option for cookie extraction."""
+    browsers = ['chrome', 'firefox', 'edge', 'safari', 'opera']
+    
+    # Check which browsers are installed
+    available_browsers = []
+    
+    system = platform.system().lower()
+    
+    for browser in browsers:
+        if system == 'windows':
+            # Windows browser detection
+            if browser == 'chrome' and shutil.which('chrome'):
+                available_browsers.append('chrome')
+            elif browser == 'firefox' and shutil.which('firefox'):
+                available_browsers.append('firefox')
+            elif browser == 'edge' and shutil.which('msedge'):
+                available_browsers.append('edge')
+        elif system == 'darwin':  # macOS
+            # macOS browser detection
+            if browser == 'chrome' and os.path.exists('/Applications/Google Chrome.app'):
+                available_browsers.append('chrome')
+            elif browser == 'firefox' and os.path.exists('/Applications/Firefox.app'):
+                available_browsers.append('firefox')
+            elif browser == 'safari' and os.path.exists('/Applications/Safari.app'):
+                available_browsers.append('safari')
+            elif browser == 'edge' and os.path.exists('/Applications/Microsoft Edge.app'):
+                available_browsers.append('edge')
+        else:  # Linux
+            # Linux browser detection
+            if browser == 'chrome' and (shutil.which('google-chrome') or shutil.which('chromium')):
+                available_browsers.append('chrome')
+            elif browser == 'firefox' and shutil.which('firefox'):
+                available_browsers.append('firefox')
+            elif browser == 'edge' and shutil.which('microsoft-edge'):
+                available_browsers.append('edge')
+    
+    # Chrome preference
+    # if 'chrome' in available_browsers:
+    #     return 'chrome'
+    # elif available_browsers:
+    #     return available_browsers[0]
+    # else:
+    #     return None
+    
+    try: 
+        return available_browsers[0]
+    except: 
+        return None
+
 def download_audio(url: str, output_template: str = "audio_snippet") -> str:
-    """Download best audio quality and extract to WAV format."""
+    """Download best audio quality and extract to WAV format with cookie support."""
     wav_file = f"{output_template}.wav"
 
+    # Base yt-dlp options
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": output_template,
@@ -36,15 +89,63 @@ def download_audio(url: str, output_template: str = "audio_snippet") -> str:
             "key": "FFmpegExtractAudio",
             "preferredcodec": "wav",
             "preferredquality": "192",
-        }]
+        }],
+        # Anti-bot detection measures
+        "sleep_interval": 1,
+        "max_sleep_interval": 3,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web", "android"],
+                "skip": ["hls", "dash"]
+            }
+        }
     }
 
+    # Try with browser cookies first
+    browser = get_browser_for_cookies()
+    if browser:
+        try:
+            ydl_opts_with_cookies = ydl_opts.copy()
+            
+            # Handle special cases for Linux Flatpak installations
+            if platform.system().lower() == 'linux' and browser == 'chrome':
+                flatpak_chrome_path = os.path.expanduser('~/.var/app/com.google.Chrome/')
+                if os.path.exists(flatpak_chrome_path):
+                    ydl_opts_with_cookies["cookiesfrombrowser"] = f"chrome:{flatpak_chrome_path}"
+                else:
+                    ydl_opts_with_cookies["cookiesfrombrowser"] = browser
+            else:
+                ydl_opts_with_cookies["cookiesfrombrowser"] = browser
+            
+            with YoutubeDL(ydl_opts_with_cookies) as ydl:
+                ydl.download([url])
+            return wav_file
+            
+        except Exception as e:
+            print(f"Cookie method failed with {browser}, trying fallback methods...")
+    
+    # Fallback 1: Try without cookies but with user agent
+    try:
+        ydl_opts_fallback = ydl_opts.copy()
+        ydl_opts_fallback["http_headers"] = { # Spoof
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        with YoutubeDL(ydl_opts_fallback) as ydl:
+            ydl.download([url])
+        return wav_file
+        
+    except Exception as e:
+        print(f"Fallback method 1 failed, trying final fallback...")
+    
+    # Fallback 2: Basic download attempt
     try:
         with YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         return wav_file
-    except:
-        raise ValueError("Audio could not be extracted from URL")
+        
+    except Exception as e:
+        raise ValueError(f"Audio could not be extracted from URL. All methods failed. Last error: {str(e)}")
 
 def convert_to_pcm(wav_file: str, output_template: str = "audio_snippet") -> str:
     """Convert WAV to raw PCM format with specific parameters."""
