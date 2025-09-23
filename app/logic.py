@@ -68,36 +68,10 @@ def get_browser_for_cookies():
         return None
     
 def download_audio(url: str, output_template: str = "audio_snippet") -> str:
-    """Download best audio quality and extract to WAV format with YouTube-specific bypasses."""
+    """Download best audio quality and extract to WAV, preferring the iOS client first."""
     wav_file = f"{output_template}.wav"
 
-    # Method 1: TV Embedded (should be the most reliable for servers)
-    ydl_opts_tv = {
-        "format": "bestaudio/best",
-        "outtmpl": output_template,
-        "quiet": False,  # Show what's happening
-        "no_warnings": False,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "wav",
-            "preferredquality": "192",
-        }],
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["tv_embedded"],
-            }
-        }
-    }
-    
-    try:
-        print("Trying TV embedded client...")
-        with YoutubeDL(ydl_opts_tv) as ydl:
-            ydl.download([url])
-        return wav_file
-    except Exception as e:
-        print(f"TV embedded client failed: {e}")
-    
-    # Method 2: iOS client
+    # Method 1: iOS client (most likely to work without cookies)
     ydl_opts_ios = {
         "format": "bestaudio/best",
         "outtmpl": output_template,
@@ -122,7 +96,68 @@ def download_audio(url: str, output_template: str = "audio_snippet") -> str:
     except Exception as e:
         print(f"iOS client failed: {e}")
     
-    # Method 3: Web with Googlebot user agent
+    # Method 2: Minimal download (no postprocessing) then local ffmpeg convert
+    ydl_opts_minimal = {
+        "format": "bestaudio/best",
+        "outtmpl": output_template + ".%(ext)s",
+        "quiet": False,
+        "no_warnings": False,
+    }
+
+    temp_download_path = None
+    try:
+        print("Trying minimal download without postprocessing...")
+        with YoutubeDL(ydl_opts_minimal) as ydl:
+            info = ydl.extract_info(url, download=True)
+            temp_download_path = ydl.prepare_filename(info)
+
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-i", temp_download_path,
+            "-vn",
+            "-acodec", "pcm_s16le",
+            "-ac", "2",
+            "-ar", "44100",
+            wav_file
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+        return wav_file
+    except Exception as e:
+        print(f"Minimal download method failed: {e}")
+    finally:
+        if temp_download_path and os.path.exists(temp_download_path):
+            try:
+                os.remove(temp_download_path)
+            except OSError:
+                pass
+
+    # Method 3: TV Embedded
+    ydl_opts_tv = {
+        "format": "bestaudio/best",
+        "outtmpl": output_template,
+        "quiet": False,
+        "no_warnings": False,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "wav",
+            "preferredquality": "192",
+        }],
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["tv_embedded"],
+            }
+        }
+    }
+
+    try:
+        print("Trying TV embedded client...")
+        with YoutubeDL(ydl_opts_tv) as ydl:
+            ydl.download([url])
+        return wav_file
+    except Exception as e:
+        print(f"TV embedded client failed: {e}")
+
+    # Method 4: Web with Googlebot user agent
     ydl_opts_bot = {
         "format": "bestaudio/best", 
         "outtmpl": output_template,
@@ -151,7 +186,7 @@ def download_audio(url: str, output_template: str = "audio_snippet") -> str:
     except Exception as e:
         print(f"Googlebot method failed: {e}")
     
-    # Method 4: Try browser cookies (prev. unsuccessful approach)
+    # Method 5: Try browser cookies (prev. unsuccessful approach)
     browser = get_browser_for_cookies()
     if browser:
         try:
@@ -184,10 +219,10 @@ def download_audio(url: str, output_template: str = "audio_snippet") -> str:
         except Exception as e:
             print(f"Cookie method failed with {browser}: {e}")
         
-    raise ValueError(f"All YouTube bypass methods failed. YouTube may be temporarily blocking server access.")
+    raise ValueError("All YouTube bypass methods failed. YouTube may be temporarily blocking server access.")
 
 def convert_to_pcm(wav_file: str, output_template: str = "audio_snippet") -> str:
-    """Convert WAV to raw PCM format with specific parameters."""
+    """Convert audio file (any format) to raw PCM with specific parameters."""
     raw_file = f"{output_template}.raw"
 
     try:
@@ -205,9 +240,10 @@ def convert_to_pcm(wav_file: str, output_template: str = "audio_snippet") -> str
     except subprocess.CalledProcessError:
         raise RuntimeError("Error processing audio")
     finally:
-        # Clean up WAV file
+        # Clean up the intermediate input file regardless of extension
         try:
-            os.remove(wav_file)
+            if os.path.exists(wav_file):
+                os.remove(wav_file)
         except OSError:
             pass
 

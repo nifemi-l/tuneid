@@ -39,7 +39,11 @@ def validate_extraction():
             return jsonify({"error": "Audio extraction failed"}), 500
         return jsonify({"success": True, "path": audio_path})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Provide a friendlier message for YouTube-specific failures
+        msg = str(e)
+        if "YouTube" in msg or "bypass" in msg:
+            msg = "Unable to fetch audio from YouTube right now. Try a different link or retry in a few minutes."
+        return jsonify({"error": msg}), 500
 
 @app.route("/validate-processing", methods=["POST"])
 def validate_processing():
